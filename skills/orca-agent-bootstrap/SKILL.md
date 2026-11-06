@@ -63,8 +63,9 @@ When the prepared project is used for implementation:
    - constraints and dependencies;
    - acceptance criteria;
    - required verification and evidence;
-   - expected memory updates.
-3. Use the official Orca `orchestration` skill for runtime operations. Load its version-matched live guide before mutating orchestration state. The coordinator plans, dispatches, answers worker questions, and verifies; workers implement only their assigned scope.
+   - expected memory updates;
+   - selected Orca agent/harness and optional model/effort, with a short routing reason.
+3. Use the official Orca `orchestration` skill for runtime operations. Load its version-matched live guide before mutating orchestration state. The coordinator plans, dispatches, answers worker questions, and verifies; workers implement only their assigned scope. The coordinator's own agent does not constrain worker selection: a Codex coordinator may dispatch Cursor, Antigravity, Claude, OpenCode, or any other agent ID enabled on the target Orca server.
 4. Put concurrent writers in separate child worktrees. Do not dispatch tasks that knowingly edit the same files in parallel unless the coordinator defines an integration order.
 5. Create `docs/agent-memory/active/<task-key>.md` when work is dispatched. Correlate the OpenSpec change name, Orca Task ID, Dispatch ID, and worktree.
 6. After starting independent workers, let Orca wake the coordinator. Do not busy-poll. Send follow-up guidance through orchestration messaging rather than typing into a worker terminal.
@@ -79,6 +80,7 @@ Read [references/orchestration-contract.md](references/orchestration-contract.md
 - Planning and execution state must remain distinguishable: OpenSpec is intent; Orca is live assignment state; agent memory is rationale and evidence.
 - Every active task has one owner and one next action.
 - Every completed task cites observable evidence, not only an agent summary.
+- Agent routing is capability-based and recorded. Do not assume that coordinator and worker share a provider, model, authentication, context limits, or supported effort levels.
 - Stable memory contains no secrets, credentials, raw logs, speculative facts, or transient progress.
 - When facts conflict, prefer executable code and verified behavior, then current specs, then memory. Record and resolve the mismatch instead of silently choosing.
 - Stop and ask the user when bootstrap would overwrite material instructions, select between incompatible architectures, or install external software.

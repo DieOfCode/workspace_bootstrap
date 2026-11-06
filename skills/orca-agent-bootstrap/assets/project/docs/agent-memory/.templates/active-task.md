@@ -8,6 +8,9 @@
 - Orca Run ID: [ID]
 - Orca Task ID: [ID]
 - Dispatch ID: [ID]
+- Requested agent/model/effort: [route]
+- Effective agent/model/effort: [route from Orca receipt]
+- Routing reason: [capability, independence, host, latency, or cost]
 - Worktree: [name/path]
 
 ## Objective

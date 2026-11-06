@@ -5,6 +5,7 @@
 - Owner: [agent]
 - OpenSpec change/task: [link]
 - Orca Task/Dispatch: [IDs]
+- Effective agent/model/effort: [route]
 
 ## Result
 

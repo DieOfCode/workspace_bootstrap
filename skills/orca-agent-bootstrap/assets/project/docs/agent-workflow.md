@@ -2,9 +2,9 @@
 
 ## Roles
 
-- **Coordinator:** plans with OpenSpec, decomposes work, dispatches Orca Tasks, resolves questions, and accepts evidence.
-- **Executor:** implements one bounded task in its assigned worktree and reports evidence.
-- **Verifier:** independently checks risky or cross-cutting work when assigned.
+- **Coordinator:** plans with OpenSpec, decomposes work, routes each task to an enabled Orca agent/model, resolves questions, and accepts evidence. Its own provider does not limit worker selection.
+- **Executor:** implements one bounded task in its assigned worktree and reports evidence; it may run through a different CLI or model family from the coordinator.
+- **Verifier:** independently checks risky or cross-cutting work when assigned, preferably with a different agent/model when correlated errors matter.
 
 ## Lifecycle
 
@@ -12,7 +12,7 @@
 2. Create or revise an OpenSpec proposal, delta specs, design, and task list.
 3. Review the plan before implementation when scope or architecture is material.
 4. Create an active memory record for each dispatched task.
-5. Run non-conflicting tasks in separate worktrees.
+5. Choose agent/model routes by capability and risk, then run non-conflicting tasks in separate worktrees.
 6. Let Orca notify the coordinator of questions, failures, and completion.
 7. Verify diffs and checks against OpenSpec.
 8. Rework or accept; then compact the task record and capture durable decisions.

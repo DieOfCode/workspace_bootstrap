@@ -31,6 +31,8 @@ Do not invent commands. If a canonical command is unknown, inspect CI and projec
 
 - The coordinator owns discovery, OpenSpec artifacts, decomposition, dependency ordering, worker questions, and acceptance.
 - Turn cohesive OpenSpec task groups into self-contained Orca Tasks with scope, constraints, acceptance criteria, and verification.
+- Choose workers from any Orca agent IDs enabled on the target server. The coordinator's own CLI/provider is not a routing restriction; select agent, optional model, and effort by capability, risk, host compatibility, latency, and cost.
+- Record requested and effective worker routing in the active task record. Do not silently substitute a user-requested agent or model.
 - Use separate child worktrees for concurrent writers.
 - Treat `worker_done` as a completion claim. Review the diff and evidence before accepting it.
 - Update stable memory only when project-wide truth changed.
@@ -38,6 +40,7 @@ Do not invent commands. If a canonical command is unknown, inspect CI and projec
 ## Worker contract
 
 - Implement only the assigned task and file scope.
+- Follow the task contract regardless of whether the coordinator uses a different agent CLI, provider, or model family.
 - Preserve unrelated user changes and existing public contracts.
 - Ask the coordinator when requirements conflict or scope must expand.
 - Run the assigned checks and report exact outcomes, changed files, residual risks, and follow-ups.
