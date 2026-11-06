@@ -1,0 +1,4 @@
+interface:
+  display_name: "Orca Agent Bootstrap"
+  short_description: "Prepare projects for supervised agent workflows"
+  default_prompt: "Use $orca-agent-bootstrap to prepare this project for an Orca coordinator and background workers."
