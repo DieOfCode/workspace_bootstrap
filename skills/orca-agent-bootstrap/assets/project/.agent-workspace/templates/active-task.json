@@ -17,7 +17,9 @@
   },
   "openspec": {
     "change": null,
-    "task": null
+    "task": null,
+    "verified_task": null,
+    "verified_at": null
   },
   "orca": {
     "run_id": null,

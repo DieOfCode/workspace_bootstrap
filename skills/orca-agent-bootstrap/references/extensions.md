@@ -14,7 +14,7 @@ Every command returns `schema_version`, `command`, `ok`, `findings`, `changes`, 
 - `doctor`: detects stacks and canonical commands. Use report mode first; `--apply` updates local policy and untouched placeholders. `--write-report` stores a timestamped local report.
 - `risk --task <json>`: returns `low|medium|high`, reasons, a capability profile, and a verifier recommendation. `--apply` updates the task JSON.
 - `conflicts --candidate <json>`: compares write scopes with active tasks. Definite overlap exits `2` and returns recommended sequential dependencies; potential glob overlap is a warning. Disjoint concurrent writers still require distinct non-empty worktree IDs.
-- `complete --task <json> --outcome <value>`: preserves raw JSON, writes a Markdown completion record, and removes the active copy only after both artifacts exist. An `accepted` outcome requires the task to have reached `accepted` through its recorded state history and to contain evidence.
+- `complete --task <json> --outcome <value>`: preserves runtime JSON, writes a compact execution record, and removes the active copy only after both artifacts exist. An `accepted` outcome requires evidence, an accepted state transition, a checked referenced OpenSpec task, and strict validation of that change. It never copies or archives the OpenSpec plan.
 - `compact`: creates monthly rollups for records at least 30 days old. It never prunes raw data.
 - `scan-secrets`: scans only local agent/OpenSpec paths with built-in high-confidence rules and redacted output. It does not scan Git history.
 - `validate`: checks schemas, records, links, local OpenSpec, `.gitignore`, and the Git index.
@@ -22,6 +22,8 @@ Every command returns `schema_version`, `command`, `ok`, `findings`, `changes`, 
 ## Local-only paths
 
 The managed ignore block covers `AGENTS.md`, `MEMORY.md`, `openspec/`, `.agents/`, and `.agent-workspace/`. The only expected repository diff from bootstrap is `.gitignore`.
+
+With `--init-openspec`, bootstrap uses `openspec init --tools agents --profile core` so the standard OpenSpec workflow skills remain under ignored `.agents/`. Provider-specific tool targets are rejected by this local-only version.
 
 ## Verifier boundary
 

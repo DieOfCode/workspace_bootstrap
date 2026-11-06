@@ -83,23 +83,46 @@ class WorkspaceTests(unittest.TestCase):
         self.assertFalse((self.project / ".agent-workspace").exists())
         self.assertEqual((self.project / "AGENTS.md").read_text(), "tracked\n")
 
-    def test_bootstrap_uses_official_local_only_openspec_arguments(self) -> None:
+    def test_bootstrap_migrates_missing_planning_policy_without_rewriting_instructions(self) -> None:
+        self.bootstrap()
+        policy_path = self.project / lib.POLICY_PATH
+        policy = lib.read_json(policy_path)
+        policy.pop("planning")
+        lib.atomic_write_json(policy_path, policy)
+        agents = self.project / "AGENTS.md"
+        agents.write_text(agents.read_text() + "\nCustom local instruction.\n")
+
+        result = lib.bootstrap(self.project, self.templates)
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(lib.read_json(policy_path)["planning"], lib.PLANNING_POLICY_DEFAULTS)
+        self.assertIn("Custom local instruction.", agents.read_text())
+        self.assertIn("migrate", {change["action"] for change in result["changes"]})
+
+    def test_bootstrap_installs_local_agents_openspec_skills(self) -> None:
         commands = []
 
         def fake_run(command: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
-            if command[0] == "git":
-                return subprocess.CompletedProcess(command, 1, "", "not a repository")
             commands.append(command)
             return subprocess.CompletedProcess(command, 0, "initialized", "")
 
-        with mock.patch.object(lib.shutil, "which", return_value="/usr/local/bin/openspec"), mock.patch.object(lib, "run_command", side_effect=fake_run):
+        with mock.patch.object(lib.shutil, "which", return_value="/usr/local/bin/openspec"), mock.patch.object(lib, "run_openspec_command", side_effect=fake_run):
             result = lib.bootstrap(self.project, self.templates, init_openspec=True)
         self.assertTrue(result["ok"])
-        self.assertEqual(commands, [["/usr/local/bin/openspec", "init", str(self.project.resolve()), "--tools", "none", "--profile", "core"]])
+        self.assertEqual(commands, [["/usr/local/bin/openspec", "init", str(self.project.resolve()), "--tools", "agents", "--profile", "core", "--no-animation", "--no-copilot-cloud"]])
 
         blocked = lib.bootstrap(self.project, self.templates, init_openspec=True, openspec_tools="cursor")
         self.assertFalse(blocked["ok"])
         self.assertEqual(blocked["findings"][0]["code"], "nonlocal_openspec_tools")
+
+    def test_managed_openspec_commands_use_local_config_and_disable_telemetry(self) -> None:
+        completed = subprocess.CompletedProcess(["openspec", "--version"], 0, "1.16.0", "")
+        with mock.patch.object(lib.subprocess, "run", return_value=completed) as run:
+            result = lib.run_openspec_command(["openspec", "--version"], self.project)
+        self.assertEqual(result.returncode, 0)
+        environment = run.call_args.kwargs["env"]
+        self.assertEqual(environment["OPENSPEC_TELEMETRY"], "0")
+        self.assertEqual(environment["XDG_CONFIG_HOME"], str((self.project / lib.OPENSPEC_CONFIG_DIR).resolve()))
 
     def test_doctor_detects_supported_stacks(self) -> None:
         fixtures = {
@@ -198,6 +221,7 @@ class WorkspaceTests(unittest.TestCase):
         task["acceptance_criteria"] = ["Test passes"]
         task["evidence"] = ["python -m unittest: passed"]
         task["result_summary"] = "Implemented the requested behavior."
+        task["openspec"] = {"change": "finish-feature", "task": "1.1", "verified_task": None, "verified_at": None}
         task["status"] = "accepted"
         task["state_history"].extend([
             {"status": "dispatched", "at": "2025-12-01T00:00:00Z"},
@@ -206,8 +230,15 @@ class WorkspaceTests(unittest.TestCase):
         ])
         path = self.write_task(task)
         completed_at = "2026-01-01T00:00:00Z"
-        result = lib.complete(self.project, path, "accepted", completed_at)
+        apply_state = {
+            "progress": {"total": 1, "complete": 1, "remaining": 0},
+            "tasks": [{"id": "1", "description": "1.1 Test passes", "done": True, "sourcePath": str(self.project / "openspec/changes/finish-feature/tasks.md"), "line": 5}],
+        }
+        validation = {"summary": {"totals": {"items": 1, "passed": 1, "failed": 0}}}
+        with mock.patch.object(lib, "openspec_apply_state", return_value=apply_state), mock.patch.object(lib, "validate_openspec_change", return_value=(True, "", validation)):
+            result = lib.complete(self.project, path, "accepted", completed_at)
         self.assertTrue(result["ok"])
+        self.assertEqual(result["data"]["openspec"]["task"]["id"], "1")
         self.assertFalse(path.exists())
         raw = self.project / lib.RAW_DIR / "2026-01/finished-task.json"
         record = self.project / lib.RECORDS_DIR / "2026-01/finished-task.md"
@@ -223,6 +254,26 @@ class WorkspaceTests(unittest.TestCase):
         result = lib.compact(self.project)
         self.assertEqual(before, rollup.read_text())
         self.assertTrue(raw.exists())
+
+    def test_complete_rejects_unchecked_openspec_task(self) -> None:
+        self.bootstrap()
+        task = self.task("unfinished-task", ["src/app.py"])
+        task["acceptance_criteria"] = ["Test passes"]
+        task["evidence"] = ["python -m unittest: passed"]
+        task["openspec"] = {"change": "finish-feature", "task": "1.1", "verified_task": None, "verified_at": None}
+        task["status"] = "accepted"
+        task["state_history"].extend([
+            {"status": "dispatched", "at": "2025-12-01T00:00:00Z"},
+            {"status": "verifying", "at": "2025-12-15T00:00:00Z"},
+            {"status": "accepted", "at": "2025-12-31T00:00:00Z"},
+        ])
+        path = self.write_task(task)
+        apply_state = {"progress": {"total": 1, "complete": 0, "remaining": 1}, "tasks": [{"id": "1", "description": "1.1 Test passes", "done": False}]}
+        with mock.patch.object(lib, "openspec_apply_state", return_value=apply_state):
+            result = lib.complete(self.project, path, "accepted", "2026-01-01T00:00:00Z")
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["findings"][0]["code"], "openspec_task_incomplete")
+        self.assertTrue(path.exists())
 
     def test_validate_rejects_invalid_state_transition(self) -> None:
         self.bootstrap()

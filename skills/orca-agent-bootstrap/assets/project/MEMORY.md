@@ -2,7 +2,7 @@
 
 Last reviewed: {{DATE}}
 
-This local-only file contains stable, verified context. Detailed progress lives under `.agent-workspace/memory/`; planned behavior lives in the ignored `openspec/` directory. None of these files may be committed.
+This local-only file contains stable, verified context. OpenSpec is the source of truth for plans, requirements, tasks, progress, and archived changes. `.agent-workspace/memory/` contains only runtime execution state and evidence. None of these files may be committed.
 
 ## Project snapshot
 

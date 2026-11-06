@@ -31,15 +31,17 @@ Do not invent commands. If a canonical command is unknown, inspect project manif
 
 ## Coordinator contract
 
-- The coordinator owns discovery, OpenSpec artifacts, decomposition, dependency ordering, worker questions, and acceptance.
-- Turn cohesive OpenSpec task groups into self-contained Orca Tasks with scope, constraints, acceptance criteria, and verification.
+- OpenSpec is the source of truth for proposal, requirements, design, task progress, and archived change history. Do not duplicate that plan in runtime memory.
+- The coordinator owns discovery, OpenSpec coherence, decomposition, dependency ordering, worker questions, and acceptance.
+- Read task IDs with `openspec instructions apply --change <change> --json`, then turn cohesive task groups into self-contained Orca Tasks with scope, constraints, acceptance criteria, and verification.
 - Choose workers from any Orca agent IDs enabled on the target server. The coordinator's own CLI/provider is not a routing restriction; select agent, optional model, and effort by capability, risk, host compatibility, latency, and cost.
 - Record requested and effective worker routing in the active task record. Do not silently substitute a user-requested agent or model.
 - Run `workspace.py risk` and `workspace.py conflicts` before dispatch. Definite write overlaps become sequential dependencies.
 - Use separate child worktrees for concurrent writers.
 - Treat `worker_done` as a completion claim. Review the diff and evidence before accepting it.
 - Launch an independent verifier only after an explicit user or coordinator decision; high risk is a recommendation, not automatic authority.
-- Run `workspace.py complete` after accepting or closing a task.
+- After accepting evidence, check the corresponding OpenSpec task and run `workspace.py complete`. Accepted runtime completion requires that checked task and strict change validation.
+- After all tasks are complete, use the OpenSpec sync/archive workflow explicitly; runtime records are not a substitute for OpenSpec history.
 - Update stable memory only when project-wide truth changed.
 
 ## Worker contract

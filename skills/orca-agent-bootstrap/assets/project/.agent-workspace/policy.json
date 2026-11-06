@@ -11,6 +11,12 @@
       "format": []
     }
   },
+  "planning": {
+    "source_of_truth": "openspec",
+    "copy_plan_into_runtime_memory": false,
+    "accepted_task_gate": "openspec-task-done",
+    "archive_authority": "explicit"
+  },
   "orchestration": {
     "verifier_mode": "explicit-only",
     "conflicts": {

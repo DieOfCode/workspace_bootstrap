@@ -2,7 +2,7 @@
 
 `orca-agent-bootstrap` подготавливает программный проект к контролируемой работе нескольких AI-агентов в Orca.
 
-Координатор исследует проект, ведёт локальный OpenSpec-план, маршрутизирует задачи любым доступным Orca agent/model, проверяет пересечения файлов и принимает результаты исполнителей. Все инструкции, спецификации, память и runtime-state остаются локальными и исключаются из Git.
+OpenSpec хранит канонические proposal, requirements, design, tasks, progress и archive. Координатор маршрутизирует эти задачи любым доступным Orca agent/model, проверяет пересечения файлов и принимает evidence. `.agent-workspace` содержит только runtime-состояние и не дублирует план. Все служебные данные остаются локальными и исключаются из Git.
 
 ## Установка
 
@@ -23,6 +23,7 @@ openspec/
 .agents/
 .agent-workspace/
 ├── policy.json
+├── openspec-config/
 ├── reports/
 ├── memory/
 │   ├── active/
@@ -33,6 +34,8 @@ openspec/
 ```
 
 Bootstrap добавляет эти пути в `.gitignore`. Если какой-либо служебный файл уже отслеживается Git, команда останавливается и сообщает команду миграции, но никогда не выполняет `git rm --cached` самостоятельно.
+
+`--init-openspec` устанавливает стандартные OpenSpec skills `explore`, `propose`, `apply`, `update`, `sync` и `archive` в локальную `.agents/`. Для accepted completion соответствующая задача OpenSpec должна быть отмечена выполненной, а change обязан пройти strict validation.
 
 ## Использование
 

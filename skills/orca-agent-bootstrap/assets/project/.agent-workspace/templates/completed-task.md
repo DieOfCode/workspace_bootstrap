@@ -3,15 +3,16 @@
 - Outcome: accepted | partial | superseded | abandoned
 - Completed: [ISO timestamp]
 - Owner: [agent]
-- OpenSpec change/task: [local reference]
+- OpenSpec source of truth: [change ID]
+- OpenSpec task: [task ID and description]
 - Orca Task/Dispatch: [IDs]
 - Effective agent/model/effort: [route]
 
-## Result
+## Runtime outcome
 
 [Compact observable outcome]
 
-## Changed areas
+## Execution scope
 
 - [path or component]
 

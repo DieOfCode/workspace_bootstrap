@@ -1,4 +1,4 @@
 interface:
   display_name: "Orca Agent Bootstrap"
-  short_description: "Create a local-only Orca agent workspace"
-  default_prompt: "Use $orca-agent-bootstrap to prepare this project with ignored local OpenSpec, memory, policy, and supervised Orca workers."
+  short_description: "Create an OpenSpec-led local Orca workspace"
+  default_prompt: "Use $orca-agent-bootstrap to prepare this project with OpenSpec as the local planning source of truth and supervised Orca workers."

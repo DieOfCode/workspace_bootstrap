@@ -30,6 +30,7 @@ DECISIONS_DIR = WORKSPACE_DIR / "memory" / "decisions"
 VERIFICATIONS_DIR = WORKSPACE_DIR / "memory" / "verifications"
 REPORTS_DIR = WORKSPACE_DIR / "reports"
 TEMPLATES_DIR = WORKSPACE_DIR / "templates"
+OPENSPEC_CONFIG_DIR = WORKSPACE_DIR / "openspec-config"
 
 SERVICE_PATHS = ("AGENTS.md", "MEMORY.md", "openspec", ".agents", ".agent-workspace")
 IGNORE_PATTERNS = ("/AGENTS.md", "/MEMORY.md", "/openspec/", "/.agents/", "/.agent-workspace/")
@@ -47,6 +48,12 @@ ACTIVE_TRANSITIONS = {
 OUTCOMES = {"accepted", "partial", "superseded", "abandoned"}
 RISK_LEVELS = {"low", "medium", "high"}
 ROUTING_PROFILES = {"coordinator", "executor-standard", "executor-complex", "verifier", "specialist"}
+PLANNING_POLICY_DEFAULTS = {
+    "source_of_truth": "openspec",
+    "copy_plan_into_runtime_memory": False,
+    "accepted_task_gate": "openspec-task-done",
+    "archive_authority": "explicit",
+}
 
 
 class WorkspaceError(Exception):
@@ -110,6 +117,13 @@ def require_within(path: Path, parent: Path, label: str) -> None:
 
 def run_command(command: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
     return subprocess.run(command, cwd=cwd, text=True, capture_output=True, check=False)
+
+
+def run_openspec_command(command: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
+    environment = os.environ.copy()
+    environment["XDG_CONFIG_HOME"] = str((cwd / OPENSPEC_CONFIG_DIR).resolve())
+    environment["OPENSPEC_TELEMETRY"] = "0"
+    return subprocess.run(command, cwd=cwd, text=True, capture_output=True, check=False, env=environment)
 
 
 def is_git_repository(project: Path) -> bool:
@@ -207,7 +221,7 @@ def collect_template_files(template_root: Path) -> list[Path]:
 
 
 def bootstrap(project: Path, template_root: Path, project_name: Optional[str] = None, dry_run: bool = False,
-              init_openspec: bool = False, openspec_tools: str = "none") -> dict[str, Any]:
+              init_openspec: bool = False, openspec_tools: str = "agents") -> dict[str, Any]:
     result = envelope("bootstrap")
     project = project.resolve()
     if not project.is_dir():
@@ -241,7 +255,17 @@ def bootstrap(project: Path, template_root: Path, project_name: Optional[str] = 
         result["changes"].append({"action": "plan" if dry_run else "create", "path": str(relative)})
         if not dry_run:
             atomic_write_text(target, render_template(source.read_text(encoding="utf-8"), name))
-    directories = (REPORTS_DIR, ACTIVE_DIR, RAW_DIR, RECORDS_DIR, ROLLUPS_DIR, DECISIONS_DIR, VERIFICATIONS_DIR, TEMPLATES_DIR)
+    policy_path = project / POLICY_PATH
+    if policy_path.exists():
+        policy = read_json(policy_path); planning = policy.setdefault("planning", {}); added_fields = []
+        if not isinstance(planning, dict):
+            raise WorkspaceError("Existing policy planning section must be an object")
+        for key, value in PLANNING_POLICY_DEFAULTS.items():
+            if key not in planning: planning[key] = value; added_fields.append(f"planning.{key}")
+        if added_fields:
+            result["changes"].append({"action": "plan" if dry_run else "migrate", "path": str(POLICY_PATH), "fields": added_fields})
+            if not dry_run: atomic_write_json(policy_path, policy)
+    directories = (REPORTS_DIR, ACTIVE_DIR, RAW_DIR, RECORDS_DIR, ROLLUPS_DIR, DECISIONS_DIR, VERIFICATIONS_DIR, TEMPLATES_DIR, OPENSPEC_CONFIG_DIR)
     for relative in directories:
         target = project / relative
         if not target.exists():
@@ -249,29 +273,28 @@ def bootstrap(project: Path, template_root: Path, project_name: Optional[str] = 
             if not dry_run:
                 target.mkdir(parents=True, exist_ok=True)
     if init_openspec:
-        if openspec_tools != "none":
+        if openspec_tools != "agents":
             finding(result, "error", "nonlocal_openspec_tools",
-                    "Local-only mode requires OpenSpec --tools none; project-local agent guidance is installed under .agents/.")
+                    "Local-only mode requires OpenSpec --tools agents so generated skills stay under ignored .agents/.")
             result["data"].update({"project": str(project), "local_only": True})
             return result
         openspec_dir = project / "openspec"
-        if openspec_dir.exists():
-            result["changes"].append({"action": "preserve", "path": "openspec"})
+        openspec_existed = openspec_dir.exists()
+        executable = shutil.which("openspec")
+        if executable is None:
+            finding(result, "error", "missing_openspec_cli", "OpenSpec CLI is required for --init-openspec.")
         else:
-            executable = shutil.which("openspec")
-            if executable is None:
-                finding(result, "error", "missing_openspec_cli", "OpenSpec CLI is required for --init-openspec.")
+            command = [executable, "init", str(project), "--tools", openspec_tools, "--profile", "core",
+                       "--no-animation", "--no-copilot-cloud"]
+            if dry_run:
+                result["changes"].append({"action": "plan-command", "command": command})
             else:
-                command = [executable, "init", str(project), "--tools", openspec_tools, "--profile", "core"]
-                if dry_run:
-                    result["changes"].append({"action": "plan-command", "command": command})
+                completed = run_openspec_command(command, project)
+                if completed.returncode != 0:
+                    finding(result, "error", "openspec_init_failed",
+                            completed.stderr.strip() or completed.stdout.strip() or "openspec init failed")
                 else:
-                    completed = run_command(command, project)
-                    if completed.returncode != 0:
-                        finding(result, "error", "openspec_init_failed",
-                                completed.stderr.strip() or completed.stdout.strip() or "openspec init failed")
-                    else:
-                        result["changes"].append({"action": "initialize", "path": "openspec"})
+                    result["changes"].append({"action": "configure" if openspec_existed else "initialize", "path": "openspec"})
     result["data"].update({"project": str(project), "local_only": True})
     return result
 
@@ -389,8 +412,10 @@ def validate_policy(policy: Any) -> list[str]:
     if not isinstance(policy, dict): return ["policy must be a JSON object"]
     errors = []
     if policy.get("schema_version") != SCHEMA_VERSION: errors.append(f"schema_version must be {SCHEMA_VERSION}")
-    for key in ("project", "orchestration", "memory", "secrets"):
+    for key in ("project", "planning", "orchestration", "memory", "secrets"):
         if not isinstance(policy.get(key), dict): errors.append(f"{key} must be an object")
+    for key, value in PLANNING_POLICY_DEFAULTS.items():
+        if policy.get("planning", {}).get(key) != value: errors.append(f"planning.{key} must be {json.dumps(value)}")
     if policy.get("orchestration", {}).get("verifier_mode") != "explicit-only": errors.append("orchestration.verifier_mode must be explicit-only")
     configured_transitions = policy.get("orchestration", {}).get("active_state_transitions")
     expected_transitions = {key: sorted(value) for key, value in ACTIVE_TRANSITIONS.items()}
@@ -410,6 +435,11 @@ def validate_task(task: Any) -> list[str]:
     if status not in ACTIVE_STATUSES: errors.append(f"status must be one of {sorted(ACTIVE_STATUSES)}")
     if task.get("task_type") not in {"coordinator", "executor", "verifier", "specialist"}: errors.append("task_type must be coordinator, executor, verifier, or specialist")
     if task.get("owner") is not None and not isinstance(task.get("owner"), str): errors.append("owner must be a string or null")
+    openspec = task.get("openspec")
+    if not isinstance(openspec, dict): errors.append("openspec must be an object")
+    else:
+        for key in ("change", "task"):
+            if openspec.get(key) is not None and not isinstance(openspec.get(key), str): errors.append(f"openspec.{key} must be a string or null")
     timestamps = task.get("timestamps")
     if not isinstance(timestamps, dict): errors.append("timestamps must be an object")
     else:
@@ -558,22 +588,68 @@ def bullet_lines(items: Iterable[Any], empty: str = "- None recorded") -> str:
     values = list(items); return "\n".join(f"- {item if isinstance(item, str) else json.dumps(item, ensure_ascii=False)}" for item in values) if values else empty
 
 
+def parse_cli_json(output: str, label: str) -> dict[str, Any]:
+    text = output.strip()
+    try:
+        value = json.loads(text)
+    except json.JSONDecodeError:
+        start, end = text.find("{"), text.rfind("}")
+        if start < 0 or end < start: raise WorkspaceError(f"{label} did not return JSON")
+        try: value = json.loads(text[start:end + 1])
+        except json.JSONDecodeError as exc: raise WorkspaceError(f"{label} returned invalid JSON: {exc}") from exc
+    if not isinstance(value, dict): raise WorkspaceError(f"{label} must return a JSON object")
+    return value
+
+
+def openspec_apply_state(project: Path, change: str) -> dict[str, Any]:
+    executable = shutil.which("openspec")
+    if executable is None: raise WorkspaceError("OpenSpec CLI is required to complete an accepted task")
+    command = [executable, "instructions", "apply", "--change", change, "--json"]
+    completed = run_openspec_command(command, project)
+    if completed.returncode != 0:
+        raise WorkspaceError(completed.stderr.strip() or completed.stdout.strip() or "OpenSpec apply status failed")
+    return parse_cli_json(completed.stdout, "OpenSpec apply status")
+
+
+def find_openspec_task(payload: dict[str, Any], reference: str) -> Optional[dict[str, Any]]:
+    tasks = payload.get("tasks", [])
+    if not isinstance(tasks, list): raise WorkspaceError("OpenSpec apply status has no task list")
+    for item in tasks:
+        if isinstance(item, dict) and str(item.get("id")) == reference: return item
+    for item in tasks:
+        if not isinstance(item, dict): continue
+        description = str(item.get("description", "")); prefix = description.split(maxsplit=1)[0] if description else ""
+        if prefix == reference: return item
+    return None
+
+
+def validate_openspec_change(project: Path, change: str) -> tuple[bool, str, Optional[dict[str, Any]]]:
+    executable = shutil.which("openspec")
+    if executable is None: raise WorkspaceError("OpenSpec CLI is required to validate an accepted task")
+    command = [executable, "validate", change, "--strict", "--json"]
+    completed = run_openspec_command(command, project)
+    message = completed.stderr.strip() or completed.stdout.strip() or "OpenSpec change validation failed"
+    if completed.returncode != 0: return False, message, None
+    return True, "", parse_cli_json(completed.stdout, "OpenSpec change validation")
+
+
 def completion_markdown(task: dict[str, Any], outcome: str, completed_at: str) -> str:
-    openspec = task.get("openspec", {}); orca = task.get("orca", {}); route = task.get("routing", {})
+    openspec = task.get("openspec", {}); verified = openspec.get("verified_task", {}); orca = task.get("orca", {}); route = task.get("routing", {})
     return f"""# Completed task: {task['task_key']}
 
 - Outcome: {outcome}
 - Completed: {completed_at}
 - Owner: {task.get('owner') or 'unassigned'}
-- OpenSpec change/task: {openspec.get('change') or 'none'} / {openspec.get('task') or 'none'}
+- OpenSpec source of truth: {openspec.get('change') or 'none'}
+- OpenSpec task: {openspec.get('task') or 'none'} ({verified.get('description') or 'not verified for this outcome'})
 - Orca Task/Dispatch: {orca.get('task_id') or 'none'} / {orca.get('dispatch_id') or 'none'}
 - Effective agent/model/effort: {json.dumps(route.get('effective') or {}, ensure_ascii=False)}
 
-## Result
+## Runtime outcome
 
 {task.get('result_summary') or 'No result summary recorded.'}
 
-## Changed areas
+## Execution scope
 
 {bullet_lines(task.get('scope', {}).get('write', []))}
 
@@ -597,20 +673,41 @@ def complete(project: Path, task_path: Path, outcome: str, completed_at: Optiona
     require_within(task_path, project / ACTIVE_DIR, "Completed task")
     task = read_json(task_path); errors = validate_task(task)
     if errors: raise WorkspaceError("Invalid task: " + "; ".join(errors))
+    timestamp = completed_at or utc_now(); completed_dt = parse_timestamp(timestamp)
     if outcome == "accepted" and (not task.get("acceptance_criteria") or not task.get("evidence")): finding(result, "blocking", "missing_acceptance_evidence", "Accepted tasks require acceptance criteria and evidence."); return result
     if outcome == "accepted" and task.get("status") != "accepted": finding(result, "blocking", "task_not_accepted", "An accepted outcome requires the active task status to be accepted."); return result
-    timestamp = completed_at or utc_now(); completed_dt = parse_timestamp(timestamp); month = completed_dt.strftime("%Y-%m"); task_key = task["task_key"]; raw_path = project / RAW_DIR / month / f"{task_key}.json"; record_path = project / RECORDS_DIR / month / f"{task_key}.md"
+    if outcome == "accepted":
+        openspec = task.get("openspec", {}); change = openspec.get("change"); task_reference = openspec.get("task")
+        if not change or not task_reference:
+            finding(result, "blocking", "missing_openspec_task", "An accepted runtime task must reference its OpenSpec change and task."); return result
+        apply_state = openspec_apply_state(project, change); openspec_task = find_openspec_task(apply_state, task_reference)
+        if openspec_task is None:
+            finding(result, "blocking", "openspec_task_not_found", "The referenced task was not found in OpenSpec apply status.", change=change, task=task_reference); return result
+        if openspec_task.get("done") is not True:
+            finding(result, "blocking", "openspec_task_incomplete", "The referenced OpenSpec task must be checked before runtime completion.", change=change, task=task_reference, description=openspec_task.get("description")); return result
+        valid_change, validation_message, validation_payload = validate_openspec_change(project, change)
+        if not valid_change:
+            finding(result, "blocking", "openspec_change_invalid", validation_message, change=change); return result
+        source_path = openspec_task.get("sourcePath")
+        if source_path:
+            try: source_path = str(Path(source_path).resolve().relative_to(project.resolve()))
+            except ValueError: source_path = None
+        task["openspec"]["verified_task"] = {"id": str(openspec_task.get("id")), "reference": task_reference, "description": openspec_task.get("description"), "source": source_path, "line": openspec_task.get("line")}
+        task["openspec"]["verified_at"] = timestamp
+        result["data"]["openspec"] = {"change": change, "task": task["openspec"]["verified_task"], "progress": apply_state.get("progress"), "validation": validation_payload.get("summary") if validation_payload else None}
+    month = completed_dt.strftime("%Y-%m"); task_key = task["task_key"]; raw_path = project / RAW_DIR / month / f"{task_key}.json"; record_path = project / RECORDS_DIR / month / f"{task_key}.md"
     if raw_path.exists() or record_path.exists(): finding(result, "blocking", "completion_exists", "Completion artifacts already exist; existing records will not be overwritten."); return result
     task["state_history"].append({"status": "completed", "at": timestamp, "reason": f"Task closed with outcome {outcome}"}); task["status"] = "completed"; task["outcome"] = outcome; task["completed_at"] = timestamp; task.setdefault("timestamps", {})["updated"] = timestamp
     atomic_write_json(raw_path, task); atomic_write_text(record_path, completion_markdown(task, outcome, timestamp)); task_path.unlink()
-    result["changes"].extend([{"action": "create", "path": str(raw_path.relative_to(project))}, {"action": "create", "path": str(record_path.relative_to(project))}, {"action": "remove-after-archive", "path": str(task_path.relative_to(project))}]); result["data"] = {"task_key": task_key, "outcome": outcome, "completed_at": timestamp}; return result
+    result["changes"].extend([{"action": "create", "path": str(raw_path.relative_to(project))}, {"action": "create", "path": str(record_path.relative_to(project))}, {"action": "remove-active-after-record", "path": str(task_path.relative_to(project))}]); result["data"].update({"task_key": task_key, "outcome": outcome, "completed_at": timestamp}); return result
 
 
 def rollup_markdown(month: str, tasks: list[dict[str, Any]]) -> str:
     source_through = max(task.get("completed_at", "unknown") for task in tasks)
     lines = [f"# Completed task rollup: {month}", "", f"Source: {len(tasks)} raw record(s) through {source_through}", ""]
     for task in sorted(tasks, key=lambda item: item["task_key"]):
-        lines.extend([f"## {task['task_key']}", "", f"- Outcome: {task.get('outcome', 'unknown')}", f"- Completed: {task.get('completed_at', 'unknown')}", f"- Risk: {task.get('risk', {}).get('level', 'unknown')}", f"- Result: {task.get('result_summary') or 'No result summary recorded.'}", f"- Evidence: {len(task.get('evidence', []))} item(s)", f"- Decisions: {len(task.get('decisions', []))} item(s)", f"- Residual risks: {len(task.get('residual_risks', []))} item(s)", ""])
+        openspec = task.get("openspec", {})
+        lines.extend([f"## {task['task_key']}", "", f"- Outcome: {task.get('outcome', 'unknown')}", f"- Completed: {task.get('completed_at', 'unknown')}", f"- OpenSpec change/task: {openspec.get('change') or 'none'} / {openspec.get('task') or 'none'}", f"- Risk: {task.get('risk', {}).get('level', 'unknown')}", f"- Evidence: {len(task.get('evidence', []))} item(s)", f"- Decisions: {len(task.get('decisions', []))} item(s)", f"- Residual risks: {len(task.get('residual_risks', []))} item(s)", ""])
     return "\n".join(lines).rstrip() + "\n"
 
 
@@ -766,7 +863,7 @@ def validate_workspace(project: Path) -> dict[str, Any]:
         if executable is None: finding(result, "blocking", "missing_openspec_cli", "OpenSpec exists but its CLI is unavailable.")
         else:
             for command in ([executable, "validate", "--all", "--strict", "--json"], [executable, "validate", "--archived"]):
-                completed = run_command(command, project)
+                completed = run_openspec_command(command, project)
                 if completed.returncode != 0: finding(result, "blocking", "openspec_validation_failed", completed.stderr.strip() or completed.stdout.strip() or "OpenSpec validation failed.", command=command[1:])
     else: finding(result, "info", "openspec_skipped", "OpenSpec directory is absent; OpenSpec validation was skipped.")
     result["data"] = {"policy_valid": policy is not None and not validate_policy(policy), "active_tasks_checked": len(list((project / ACTIVE_DIR).glob("*.json"))) if (project / ACTIVE_DIR).exists() else 0, "local_only": True}; return result

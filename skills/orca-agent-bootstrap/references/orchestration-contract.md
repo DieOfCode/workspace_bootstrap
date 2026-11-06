@@ -101,7 +101,7 @@ Do not tell a worker merely to “implement the feature.” Give it enough conte
 
 1. Load the official, live Orca orchestration guide (`orca skills get orchestration --full`, using the executable appropriate to the current Orca environment).
 2. Create a Run for the user-visible objective.
-3. Create tasks with explicit dependencies. Run local risk and conflict checks, convert definite write overlap into sequential dependencies, select an enabled agent/model pair, then start every ready non-conflicting task.
+3. Read canonical task IDs with `openspec instructions apply --change <change> --json`, then create runtime tasks with explicit dependencies and exact OpenSpec references. Run local risk and conflict checks, convert definite write overlap into sequential dependencies, select an enabled agent/model pair, then start every ready non-conflicting task.
 4. End the coordinator turn after dispatch. Orca should wake it on worker completion, question, or escalation; do not hide messages by polling from a separate watcher.
 5. Process worker questions and completion receipts in order.
 6. Review evidence. Send focused corrections to the same dispatch when continuity helps; create a new retry only when the existing worker is unusable or isolation is needed.
@@ -116,7 +116,7 @@ Do not tell a worker merely to “implement the feature.” Give it enough conte
 | blocked requirement | blocked task or decision gate | blocker and next decision |
 | archived change | no live dispatches | stable outcome and decisions |
 
-Runtime status alone must not check an OpenSpec box. Acceptance requires evidence matching the task contract.
+Runtime status alone must not check an OpenSpec box. Acceptance requires evidence matching the task contract. After acceptance, check the OpenSpec task and run `workspace.py complete`; the command verifies that checkbox and strict change validity before closing runtime state.
 
 All orchestration records described here are local-only and must remain ignored by Git.
 

@@ -24,7 +24,7 @@ def add_common(parser: argparse.ArgumentParser) -> None:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = WorkspaceArgumentParser(description="Manage a local-only Orca agent workspace."); subs = parser.add_subparsers(dest="command", required=True, parser_class=WorkspaceArgumentParser)
-    cmd = subs.add_parser("bootstrap"); add_common(cmd); cmd.add_argument("--project-name"); cmd.add_argument("--dry-run", action="store_true"); cmd.add_argument("--init-openspec", action="store_true"); cmd.add_argument("--openspec-tools", default="none")
+    cmd = subs.add_parser("bootstrap"); add_common(cmd); cmd.add_argument("--project-name"); cmd.add_argument("--dry-run", action="store_true"); cmd.add_argument("--init-openspec", action="store_true"); cmd.add_argument("--openspec-tools", default="agents")
     cmd = subs.add_parser("doctor"); add_common(cmd); cmd.add_argument("--apply", action="store_true"); cmd.add_argument("--write-report", action="store_true")
     cmd = subs.add_parser("risk"); add_common(cmd); cmd.add_argument("--task", required=True); cmd.add_argument("--apply", action="store_true")
     cmd = subs.add_parser("conflicts"); add_common(cmd); cmd.add_argument("--candidate", required=True); cmd.add_argument("--active-dir")

@@ -12,7 +12,7 @@ Keep verified facts that remain useful across many tasks:
 - canonical commands;
 - durable constraints and conventions;
 - important risks and non-obvious behavior;
-- links to current specs and decisions.
+- links to current OpenSpec changes and decisions.
 
 Keep it under roughly 200 lines. Replace stale facts; do not append an endless diary.
 
@@ -29,7 +29,7 @@ Update at meaningful transitions, not after every command. Raw logs belong in to
 
 ### Completed memory: `.agent-workspace/memory/completed/`
 
-Use `workspace.py complete` after coordinator acceptance or closure. It preserves raw JSON and creates a compact Markdown record with outcome, affected areas, evidence, decisions, residual risk, and follow-ups.
+Use `workspace.py complete` after coordinator acceptance or closure. For accepted work, the corresponding OpenSpec task must already be checked and the change must pass strict validation. The command preserves runtime JSON and creates a compact record containing routing, execution scope, evidence, decisions, residual risk, and an OpenSpec reference. It does not copy the plan.
 
 Records are organized by year/month. `workspace.py compact` creates idempotent monthly rollups for records at least 30 days old. Raw and individual records are retained indefinitely.
 
@@ -46,8 +46,10 @@ OpenSpec task selected
   -> active JSON record created
   -> discoveries/evidence updated
   -> coordinator verifies
+  -> corresponding OpenSpec checkbox checked
   -> decision records extracted
-  -> complete command preserves raw JSON and writes Markdown
+  -> complete command verifies OpenSpec and archives runtime evidence
+  -> OpenSpec change validated and explicitly archived after all tasks
   -> compact command creates a monthly rollup after 30 days
   -> stable MEMORY.md updated only if project-wide truth changed
 ```
