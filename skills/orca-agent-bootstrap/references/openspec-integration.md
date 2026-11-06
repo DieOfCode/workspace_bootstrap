@@ -1,22 +1,18 @@
 # OpenSpec integration
 
-Use OpenSpec as the agreement layer between the user, coordinator, and workers. Do not reimplement OpenSpec's schemas inside this skill.
+Use OpenSpec as the local agreement layer between the user, coordinator, and workers. In projects prepared by this skill, the entire `openspec/` tree and generated `.agents/` workflows are ignored and must not be committed.
 
 ## Initialization
 
 Prefer the official CLI at the repository root:
 
 ```bash
-openspec init --tools agents --profile core --no-animation --no-copilot-cloud
+openspec init <repo-root> --tools none --profile core
 ```
 
-The `agents` tool target creates shared workflow skills under `.agents/`, which Orca can expose to compatible agents. Add explicit tool IDs such as `codex` or `claude` only when the project needs their tool-specific placements.
+Bootstrap invokes the official CLI with `--tools none` so it cannot generate provider-specific directories outside the managed local-only paths. Shared Orca guidance lives under ignored `.agents/`; worker selection still happens dynamically through Orca routing.
 
-Do not use `--force` during generic bootstrap. If an existing installation needs refresh, preview first:
-
-```bash
-openspec update --dry-run --json
-```
+Do not use `--force` during generic bootstrap. Refreshing an existing installation with `openspec update <repo-root>` is a separate, explicitly reviewed action because it can regenerate tool integrations.
 
 ## Artifact lifecycle
 
@@ -55,3 +51,5 @@ Before archive:
 6. the user has authorized any integration action that is not already implied by the task.
 
 OpenSpec archive preserves proposal, design, tasks, and deltas as history. Agent memory should point to that archive instead of copying it.
+
+Because OpenSpec is local-only in this workflow, collaboration and recovery depend on the local workspace. The skill must not present local OpenSpec files as repository documentation or attempt to add them to Git.

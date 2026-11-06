@@ -1,88 +1,75 @@
 ---
 name: orca-agent-bootstrap
-description: Prepare an existing or new software project for supervised multi-agent work in Orca by establishing the coordinator/worker contract, OpenSpec planning, AGENTS.md, durable project memory, and a file-backed active/completed task ledger. Use when onboarding a repository to Orca, repairing missing agent context, or standardizing how background workers receive and report work. Do not use merely to execute one already-prepared task.
+description: Prepare a software project for supervised multi-agent work in Orca using a local-only ignored workspace, OpenSpec planning, stack/command discovery, structured task state, conflict checks, risk-based routing, memory rollups, validation, and secret scanning. Use when onboarding or repairing a repository's agent workflow. Do not use merely to execute one already-prepared task.
 ---
 
 # Orca Agent Bootstrap
 
-Create a small, inspectable control plane for agents. Prefer links and compact summaries over copying the same context into several files.
+Create a local control plane for agents without committing agent instructions, specifications, memory, or runtime state.
 
-## Source-of-truth boundaries
+## Local-only invariant
 
-- `openspec/specs/` describes current product behavior; `openspec/changes/<change>/` describes a proposed change.
-- `AGENTS.md` contains repository instructions, commands, boundaries, and the coordinator/worker contract.
-- `MEMORY.md` contains only stable, verified project facts and links. Keep it short.
-- `docs/agent-memory/active/` contains volatile execution state, one file per active task.
-- `docs/agent-memory/completed/` contains compact completion records and evidence.
-- `docs/agent-memory/decisions/` contains durable decisions and rationale.
+The target project must ignore and never track:
 
-Do not duplicate an OpenSpec proposal or long terminal output in memory. Link to it and record only execution facts, decisions, blockers, and evidence.
+- `AGENTS.md` and `MEMORY.md`;
+- `openspec/` and `.agents/`;
+- `.agent-workspace/` including policy, reports, tasks, decisions, verifications, and rollups.
 
-## Bootstrap workflow
+Only the managed `.gitignore` update is expected to enter the project diff. If any service path is already tracked, stop and report the exact migration command; never run `git rm --cached` without separate user authorization.
 
-1. Inspect the repository before writing:
-   - Read any existing `AGENTS.md`, `MEMORY.md`, agent rules, OpenSpec files, contributor docs, manifests, CI configuration, and test commands.
-   - Check working-tree status and preserve unrelated user changes.
-   - Infer the project map, build/test/lint commands, generated paths, sensitive areas, and ownership boundaries from evidence.
-2. Preview the deterministic scaffold:
+## Bootstrap
+
+1. Inspect repository status and existing agent/OpenSpec files.
+2. Preview:
 
    ```bash
-   python3 <skill-dir>/scripts/bootstrap_project.py --project <repo-root> --dry-run
+   python3 <skill-dir>/scripts/workspace.py bootstrap --project <repo-root> --dry-run --json
    ```
 
-3. Run the scaffold after reviewing the preview. It creates missing files only and never overwrites existing files:
+3. Bootstrap after reviewing the plan:
 
    ```bash
-   python3 <skill-dir>/scripts/bootstrap_project.py --project <repo-root>
+   python3 <skill-dir>/scripts/workspace.py bootstrap --project <repo-root> --json
    ```
 
-4. Merge project-specific facts into existing or newly created files. Replace every bracketed bootstrap prompt with verified information; remove sections that do not apply. Never replace an existing instruction file wholesale.
-5. If OpenSpec is absent, prefer the installed official CLI:
+4. To initialize local OpenSpec with its installed official CLI, add `--init-openspec`. Local-only mode uses the official `--tools none`; project-local Orca guidance is installed under ignored `.agents/` instead of generating provider-specific tracked directories.
+5. Discover project facts in report mode, then explicitly apply verified detections:
 
    ```bash
-   python3 <skill-dir>/scripts/bootstrap_project.py \
-     --project <repo-root> \
-     --init-openspec \
-     --openspec-tools agents
+   python3 <skill-dir>/scripts/workspace.py doctor --project <repo-root> --json
+   python3 <skill-dir>/scripts/workspace.py doctor --project <repo-root> --apply --json
    ```
 
-   This intentionally does not install OpenSpec. If the command is unavailable, report the missing dependency and ask before any networked installation. If OpenSpec already exists, inspect and preserve its configuration.
-6. Validate the result with read-only checks: links resolve, commands are real, no placeholder facts are presented as true, and the new files are visible in version control.
-7. Report files created, files preserved, facts still needing human confirmation, and the exact next action for the first change.
+6. Run local validation and secret scanning. Report created/preserved files, unresolved findings, and the first OpenSpec action.
 
-For project memory rules and record lifecycle, read [references/memory-model.md](references/memory-model.md). For OpenSpec initialization or task mapping, read [references/openspec-integration.md](references/openspec-integration.md).
+The legacy `scripts/bootstrap_project.py` remains a compatible wrapper. Read [references/extensions.md](references/extensions.md) for command behavior and [references/openspec-integration.md](references/openspec-integration.md) before initializing or validating OpenSpec.
 
-## Coordinator and worker workflow
+## Orchestrated work
 
-When the prepared project is used for implementation:
+1. The coordinator reads local `AGENTS.md`, `MEMORY.md`, OpenSpec artifacts, policy, and relevant active task JSON.
+2. Create one `.agent-workspace/memory/active/<task-key>.json` per planned worker from the template. Include precise read/write/forbidden scopes, acceptance criteria, verification, dependencies, and requested routing.
+3. Before dispatch, run:
 
-1. The coordinator reads `AGENTS.md`, `MEMORY.md`, relevant specs, and active task records. It explores ambiguity and creates or updates an OpenSpec change before implementation.
-2. The coordinator turns cohesive groups from `tasks.md` into supervised Orca Tasks. Each worker specification must state:
-   - objective and OpenSpec change;
-   - in-scope and forbidden files;
-   - constraints and dependencies;
-   - acceptance criteria;
-   - required verification and evidence;
-   - expected memory updates;
-   - selected Orca agent/harness and optional model/effort, with a short routing reason.
-3. Use the official Orca `orchestration` skill for runtime operations. Load its version-matched live guide before mutating orchestration state. The coordinator plans, dispatches, answers worker questions, and verifies; workers implement only their assigned scope. The coordinator's own agent does not constrain worker selection: a Codex coordinator may dispatch Cursor, Antigravity, Claude, OpenCode, or any other agent ID enabled on the target Orca server.
-4. Put concurrent writers in separate child worktrees. Do not dispatch tasks that knowingly edit the same files in parallel unless the coordinator defines an integration order.
-5. Create `docs/agent-memory/active/<task-key>.md` when work is dispatched. Correlate the OpenSpec change name, Orca Task ID, Dispatch ID, and worktree.
-6. After starting independent workers, let Orca wake the coordinator. Do not busy-poll. Send follow-up guidance through orchestration messaging rather than typing into a worker terminal.
-7. A `worker_done` message is a claim, not proof. The coordinator reviews the diff, runs or inspects required checks, compares behavior with OpenSpec, and either requests focused rework or accepts the result.
-8. On acceptance, check off supported OpenSpec tasks, move the active record into `completed/`, add or update decision records, and compact `MEMORY.md` only when stable project knowledge changed.
-9. Archive the OpenSpec change only after all requirements are implemented and verified. Destructive cleanup, merging, pushing, or publishing still requires the user's ordinary authorization.
+   ```bash
+   python3 <skill-dir>/scripts/workspace.py risk --project <repo-root> --task <task-json> --apply --json
+   python3 <skill-dir>/scripts/workspace.py conflicts --project <repo-root> --candidate <task-json> --json
+   ```
 
-Read [references/orchestration-contract.md](references/orchestration-contract.md) when configuring roles, task contracts, verification, retries, or background execution.
+4. Definite write overlap blocks parallel dispatch and becomes a sequential dependency. Potential glob overlap is a warning that requires scope refinement. Separate worktrees do not make overlapping writes independent.
+5. Select any enabled Orca agent/model matching the capability profile. The coordinator's provider is not a worker allow-list. Do not silently substitute an explicit user choice.
+6. High-risk work recommends an independent verifier but never starts one automatically. A verifier requires an explicit user or coordinator decision, fresh context, and read-only scope by default.
+7. Treat `worker_done` as a claim. Verify the diff and evidence against OpenSpec before acceptance.
+8. After acceptance or closure, run `workspace.py complete`. During maintenance, run `workspace.py compact`; it creates 30-day monthly rollups and never deletes raw records.
+9. Before reporting completion, run `workspace.py scan-secrets` and `workspace.py validate` locally.
+
+Read [references/orchestration-contract.md](references/orchestration-contract.md) for worker/verifier contracts and [references/memory-model.md](references/memory-model.md) for state lifecycle.
 
 ## Quality gates
 
-- Planning and execution state must remain distinguishable: OpenSpec is intent; Orca is live assignment state; agent memory is rationale and evidence.
-- Every active task has one owner and one next action.
-- Every completed task cites observable evidence, not only an agent summary.
-- Agent routing is capability-based and recorded. Do not assume that coordinator and worker share a provider, model, authentication, context limits, or supported effort levels.
-- Stable memory contains no secrets, credentials, raw logs, speculative facts, or transient progress.
-- When facts conflict, prefer executable code and verified behavior, then current specs, then memory. Record and resolve the mismatch instead of silently choosing.
-- Stop and ask the user when bootstrap would overwrite material instructions, select between incompatible architectures, or install external software.
-
-For optional hardening such as independent review, model routing, context budgets, CI checks, and recovery policies, read [references/extensions.md](references/extensions.md).
+- OpenSpec is local intent; Orca is live assignment state; `.agent-workspace` is local rationale and evidence.
+- Every active task has one owner, one next action, explicit write scope, and valid JSON state.
+- Accepted tasks contain acceptance evidence.
+- Requested and effective agent/model/effort are recorded.
+- Agent files remain ignored and absent from the Git index.
+- Secret findings are redacted; exact allowlist entries require a rationale.
+- Do not install external software, untrack files, archive OpenSpec, merge, push, or publish without the user's ordinary authorization.

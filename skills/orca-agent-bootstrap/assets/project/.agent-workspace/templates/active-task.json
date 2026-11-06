@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "task_key": "replace-with-kebab-case-key",
+  "task_type": "executor",
+  "status": "ready",
+  "state_history": [
+    {
+      "status": "ready",
+      "at": "{{DATE}}T00:00:00Z",
+      "reason": "Task created"
+    }
+  ],
+  "owner": null,
+  "timestamps": {
+    "created": "{{DATE}}T00:00:00Z",
+    "updated": "{{DATE}}T00:00:00Z"
+  },
+  "openspec": {
+    "change": null,
+    "task": null
+  },
+  "orca": {
+    "run_id": null,
+    "task_id": null,
+    "dispatch_id": null,
+    "worktree": null
+  },
+  "scope": {
+    "read": [],
+    "write": [],
+    "forbidden": []
+  },
+  "dependencies": [],
+  "acceptance_criteria": [],
+  "risk": {
+    "level": "low",
+    "reasons": []
+  },
+  "required_capabilities": [],
+  "routing": {
+    "profile": "executor-standard",
+    "requested": {
+      "agent": null,
+      "model": null,
+      "effort": null
+    },
+    "effective": {
+      "agent": null,
+      "model": null,
+      "effort": null
+    },
+    "reason": []
+  },
+  "verification": {
+    "commands": [],
+    "artifacts": []
+  },
+  "verifier_requested": false,
+  "evidence": [],
+  "decisions": [],
+  "residual_risks": [],
+  "blockers": [],
+  "next_action": {
+    "owner": null,
+    "action": null
+  },
+  "result_summary": null
+}

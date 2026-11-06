@@ -2,29 +2,7 @@
 
 `orca-agent-bootstrap` подготавливает программный проект к контролируемой работе нескольких AI-агентов в Orca.
 
-Сильный агент выступает координатором: исследует проект, создаёт OpenSpec-план, маршрутизирует ограниченные задачи подходящим исполнителям, принимает вопросы и проверяет результаты. Координатор и исполнители не обязаны использовать один агентный CLI или одного провайдера: например, координатор Codex может запускать Cursor, Antigravity, Claude, OpenCode и другие доступные в Orca агенты. Исполнители работают в отдельных worktree и возвращают доказательства выполнения.
-
-## Что создаётся в проекте
-
-```text
-AGENTS.md
-MEMORY.md
-docs/
-├── agent-workflow.md
-└── agent-memory/
-    ├── active/
-    ├── completed/
-    ├── decisions/
-    └── .templates/
-openspec/                  # через официальный OpenSpec CLI
-```
-
-- `AGENTS.md` — правила работы координатора и исполнителей.
-- `MEMORY.md` — короткая стабильная память проекта.
-- `active/` — оперативное состояние выполняемых задач.
-- `completed/` — компактные результаты и доказательства.
-- `decisions/` — причины архитектурных решений.
-- OpenSpec — требования, дизайн и план изменения.
+Координатор исследует проект, ведёт локальный OpenSpec-план, маршрутизирует задачи любым доступным Orca agent/model, проверяет пересечения файлов и принимает результаты исполнителей. Все инструкции, спецификации, память и runtime-state остаются локальными и исключаются из Git.
 
 ## Установка
 
@@ -36,46 +14,54 @@ npx skills add https://github.com/DieOfCode/workspace_bootstrap \
 
 Либо установите skill через страницу Skills в Orca.
 
-Для запуска попросите агента:
+## Локальная структура проекта
+
+```text
+AGENTS.md
+MEMORY.md
+openspec/
+.agents/
+.agent-workspace/
+├── policy.json
+├── reports/
+├── memory/
+│   ├── active/
+│   ├── completed/{raw,records,rollups}/
+│   ├── decisions/
+│   └── verifications/
+└── templates/
+```
+
+Bootstrap добавляет эти пути в `.gitignore`. Если какой-либо служебный файл уже отслеживается Git, команда останавливается и сообщает команду миграции, но никогда не выполняет `git rm --cached` самостоятельно.
+
+## Использование
 
 ```text
 Используй $orca-agent-bootstrap и подготовь текущий репозиторий
-для работы сильного координатора и фоновых исполнителей.
-Координатор может использовать любые доступные Orca agent/model пары,
-а не только собственный агентный CLI или провайдера.
+для локальной работы координатора и фоновых исполнителей.
 ```
 
-## Ручной bootstrap
-
-Из каталога skill:
+Ручной запуск из каталога skill:
 
 ```bash
-cd skills/orca-agent-bootstrap
+python3 scripts/workspace.py bootstrap --project /path/to/project --dry-run --json
+python3 scripts/workspace.py bootstrap --project /path/to/project --json
+python3 scripts/workspace.py bootstrap --project /path/to/project --init-openspec --json
+python3 scripts/workspace.py doctor --project /path/to/project --json
+python3 scripts/workspace.py doctor --project /path/to/project --apply --json
 ```
 
-Сначала просмотрите план изменений:
+Основные команды:
 
 ```bash
-python3 scripts/bootstrap_project.py --project /path/to/project --dry-run
+python3 scripts/workspace.py risk --project /path/to/project --task task.json --apply --json
+python3 scripts/workspace.py conflicts --project /path/to/project --candidate task.json --json
+python3 scripts/workspace.py complete --project /path/to/project --task task.json --outcome accepted --json
+python3 scripts/workspace.py compact --project /path/to/project --json
+python3 scripts/workspace.py scan-secrets --project /path/to/project --json
+python3 scripts/workspace.py validate --project /path/to/project --json
 ```
 
-Затем создайте отсутствующие файлы:
+CLI использует только Python 3.9+ standard library. Он не устанавливает зависимости, не удаляет raw memory, не запускает verifier без явного решения и не создаёт CI workflow.
 
-```bash
-python3 scripts/bootstrap_project.py --project /path/to/project
-```
-
-Для инициализации OpenSpec установленным официальным CLI:
-
-```bash
-python3 scripts/bootstrap_project.py \
-  --project /path/to/project \
-  --init-openspec \
-  --openspec-tools agents
-```
-
-Скрипт не перезаписывает существующие файлы и не устанавливает внешние зависимости автоматически.
-
-## Структура репозитория
-
-Skill находится в [`skills/orca-agent-bootstrap`](skills/orca-agent-bootstrap/). Подробные правила загрузки контекста, оркестрации и памяти находятся в `SKILL.md` и каталоге `references/`.
+Skill находится в [`skills/orca-agent-bootstrap`](skills/orca-agent-bootstrap/).

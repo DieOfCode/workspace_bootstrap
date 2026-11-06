@@ -16,9 +16,9 @@ Keep verified facts that remain useful across many tasks:
 
 Keep it under roughly 200 lines. Replace stale facts; do not append an endless diary.
 
-### Active memory: `docs/agent-memory/active/`
+### Active memory: `.agent-workspace/memory/active/`
 
-Use one record per dispatched unit of work. It answers:
+Use one structured JSON record per dispatched unit of work. It answers:
 
 - what is being attempted and by whom;
 - which specification and dispatch own it;
@@ -27,13 +27,13 @@ Use one record per dispatched unit of work. It answers:
 
 Update at meaningful transitions, not after every command. Raw logs belong in tooling output or artifacts, not the record.
 
-### Completed memory: `docs/agent-memory/completed/`
+### Completed memory: `.agent-workspace/memory/completed/`
 
-Move and compact the active record after coordinator acceptance. Preserve outcome, affected areas, evidence, decisions, residual risk, and follow-ups. Remove transient narration.
+Use `workspace.py complete` after coordinator acceptance or closure. It preserves raw JSON and creates a compact Markdown record with outcome, affected areas, evidence, decisions, residual risk, and follow-ups.
 
-Organize by year/month when the directory becomes large. A completed record is an index to evidence, not a second implementation report.
+Records are organized by year/month. `workspace.py compact` creates idempotent monthly rollups for records at least 30 days old. Raw and individual records are retained indefinitely.
 
-### Decisions: `docs/agent-memory/decisions/`
+### Decisions: `.agent-workspace/memory/decisions/`
 
 Create a decision record when the choice is expensive to reverse, affects several tasks, changes a public contract, or would otherwise be repeatedly debated. Include context, considered options, rationale, consequences, and supersession links.
 
@@ -43,11 +43,12 @@ Small local choices stay in the task record.
 
 ```text
 OpenSpec task selected
-  -> active record created
+  -> active JSON record created
   -> discoveries/evidence updated
   -> coordinator verifies
   -> decision records extracted
-  -> compacted record moved to completed
+  -> complete command preserves raw JSON and writes Markdown
+  -> compact command creates a monthly rollup after 30 days
   -> stable MEMORY.md updated only if project-wide truth changed
 ```
 
@@ -58,3 +59,5 @@ Use a stable task key derived from the OpenSpec change and task number, for exam
 Each record includes a `Last updated` value and a single owner. When two records conflict, stop parallel work in the overlapping area and let the coordinator reconcile them. Mark obsolete decisions as superseded instead of deleting the reasoning.
 
 Never store credentials, personal data, private keys, tokens, production payloads, or unredacted secrets in project memory.
+
+All memory paths, root `MEMORY.md`, and decision/verifier records are local-only. They must be ignored and absent from the Git index.

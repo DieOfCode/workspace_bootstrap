@@ -2,7 +2,7 @@
 
 Last reviewed: {{DATE}}
 
-This file contains stable, verified context only. Detailed progress lives under `docs/agent-memory/`; planned behavior lives in OpenSpec.
+This local-only file contains stable, verified context. Detailed progress lives under `.agent-workspace/memory/`; planned behavior lives in the ignored `openspec/` directory. None of these files may be committed.
 
 ## Project snapshot
 
@@ -30,11 +30,11 @@ This file contains stable, verified context only. Detailed progress lives under 
 ## Current focus
 
 - OpenSpec changes: [links or none]
-- Active execution records: [`docs/agent-memory/active/`]
+- Active execution records: [`.agent-workspace/memory/active/`]
 
 ## Decisions
 
-- Decision index: [`docs/agent-memory/decisions/`]
+- Decision index: [`.agent-workspace/memory/decisions/`]
 
 ## Known risks and debt
 
@@ -43,3 +43,5 @@ This file contains stable, verified context only. Detailed progress lives under 
 ## Maintenance rule
 
 Keep this file concise. Replace stale facts, link to detailed records, and never append raw logs, transient status, speculation, secrets, or full task histories.
+
+Before finishing maintenance, confirm this file is ignored and not tracked by Git.

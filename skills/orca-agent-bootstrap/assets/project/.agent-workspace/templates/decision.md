@@ -2,9 +2,9 @@
 
 - Status: proposed | accepted | superseded
 - Date: [ISO date]
-- Owners: [people/roles]
-- Related OpenSpec change/tasks: [links]
-- Supersedes: [decision link or none]
+- Owners: [people or roles]
+- Related local OpenSpec change/tasks: [references]
+- Supersedes: [decision reference or none]
 
 ## Context
 
@@ -21,10 +21,10 @@
 
 ## Rationale
 
-[Why this option best fits the evidence and constraints]
+[Why this option fits the evidence and constraints]
 
 ## Consequences
 
 - Positive: [effect]
-- Negative: [cost/risk]
+- Negative: [cost or risk]
 - Follow-up: [action or none]

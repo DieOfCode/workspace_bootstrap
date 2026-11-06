@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "project": {
+    "name": "{{PROJECT_NAME}}",
+    "stacks": [],
+    "commands": {
+      "setup": [],
+      "build": [],
+      "test": [],
+      "lint": [],
+      "format": []
+    }
+  },
+  "orchestration": {
+    "verifier_mode": "explicit-only",
+    "conflicts": {
+      "definite": "sequence",
+      "potential": "warn"
+    },
+    "active_state_transitions": {
+      "ready": ["dispatched", "blocked"],
+      "dispatched": ["blocked", "verifying"],
+      "blocked": ["ready", "dispatched", "rework"],
+      "verifying": ["accepted", "blocked", "rework"],
+      "rework": ["dispatched", "blocked", "verifying"],
+      "accepted": []
+    },
+    "routing_profiles": {
+      "coordinator": {
+        "quality": "high",
+        "capabilities": ["planning", "decomposition", "review"]
+      },
+      "executor-standard": {
+        "quality": "balanced",
+        "capabilities": ["repository-editing", "testing"]
+      },
+      "executor-complex": {
+        "quality": "high",
+        "capabilities": ["repository-editing", "cross-module-reasoning", "testing"]
+      },
+      "verifier": {
+        "quality": "high",
+        "capabilities": ["independent-review", "requirement-tracing"]
+      },
+      "specialist": {
+        "quality": "task-dependent",
+        "capabilities": []
+      }
+    }
+  },
+  "memory": {
+    "rollup_after_days": 30,
+    "keep_raw": true
+  },
+  "secrets": {
+    "mode": "built-in",
+    "paths": ["AGENTS.md", "MEMORY.md", "openspec", ".agents", ".agent-workspace"],
+    "allowlist": []
+  }
+}

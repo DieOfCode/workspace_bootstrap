@@ -1,44 +1,28 @@
-# Optional extensions
+# Local workspace commands
 
-Apply these only when their cost matches the project.
+Use the single dependency-free CLI:
 
-## Independent verification
+```bash
+python3 <skill-dir>/scripts/workspace.py <command> --project <repo-root> --json
+```
 
-Dispatch a fresh-context verifier for authentication, payments, migrations, concurrency, security boundaries, and broad refactors. Require a requirement-to-evidence table and a verdict. Keep implementation and acceptance authority separate.
+Every command returns `schema_version`, `command`, `ok`, `findings`, `changes`, and `data`. Exit `0` means success or warnings, `1` means an operational/schema input error, and `2` means a blocking policy finding.
 
-## Model routing
+## Commands
 
-Record a simple policy in `AGENTS.md`:
+- `bootstrap`: creates local templates, directories, and the managed `.gitignore` block. It refuses tracked service files and never untracks them.
+- `doctor`: detects stacks and canonical commands. Use report mode first; `--apply` updates local policy and untouched placeholders. `--write-report` stores a timestamped local report.
+- `risk --task <json>`: returns `low|medium|high`, reasons, a capability profile, and a verifier recommendation. `--apply` updates the task JSON.
+- `conflicts --candidate <json>`: compares write scopes with active tasks. Definite overlap exits `2` and returns recommended sequential dependencies; potential glob overlap is a warning. Disjoint concurrent writers still require distinct non-empty worktree IDs.
+- `complete --task <json> --outcome <value>`: preserves raw JSON, writes a Markdown completion record, and removes the active copy only after both artifacts exist. An `accepted` outcome requires the task to have reached `accepted` through its recorded state history and to contain evidence.
+- `compact`: creates monthly rollups for records at least 30 days old. It never prunes raw data.
+- `scan-secrets`: scans only local agent/OpenSpec paths with built-in high-confidence rules and redacted output. It does not scan Git history.
+- `validate`: checks schemas, records, links, local OpenSpec, `.gitignore`, and the Git index.
 
-- coordinator route: capable agent/model for discovery, architecture, decomposition, conflict resolution, and final review;
-- executor route: any enabled Orca agent/model whose capabilities, host, latency, and cost match the bounded task;
-- verifier route: preferably a different agent/model family when independent reasoning materially reduces correlated errors;
-- specialist route: an agent with the required UI, browser, security, database, or platform tools.
+## Local-only paths
 
-The coordinator's own harness is not the worker allow-list. A Codex coordinator can route to Cursor or Antigravity, and the reverse, when those agent IDs are enabled on the worker server. Use capability and risk rather than task size or provider loyalty. Never put an under-specified task on a cheaper model.
+The managed ignore block covers `AGENTS.md`, `MEMORY.md`, `openspec/`, `.agents/`, and `.agent-workspace/`. The only expected repository diff from bootstrap is `.gitignore`.
 
-## Context budgets
+## Verifier boundary
 
-Set limits for worker contracts and memory records. Provide paths and targeted excerpts instead of whole repositories. When a task grows beyond one cohesive outcome, split it before dispatch.
-
-## Conflict-aware scheduling
-
-Add an `Expected files` field to active records. The coordinator can run tasks concurrently only when their write sets do not overlap or an explicit integration order exists.
-
-## Verification matrix
-
-For each OpenSpec scenario, track the test, command, manual observation, or artifact that proves it. Use this as the acceptance gate and as input to CI.
-
-## Recovery policy
-
-Define what happens when a worker stops, asks for credentials, fails verification, or produces an unreviewable diff. Prefer correcting the plan or environment over blind retries. Preserve failed-task evidence when it explains later decisions.
-
-## Automated hygiene
-
-Useful later additions include:
-
-- a project doctor that checks required commands, stale links, active records without owners, and finished tasks left active;
-- CI validation for OpenSpec and memory schemas;
-- periodic compaction of completed records into release or milestone summaries;
-- secret scanning for committed agent artifacts;
-- metrics for lead time, retry rate, verification failures, and model cost without storing prompts or sensitive content.
+The CLI may recommend a verifier but never launches one. Creating a verifier task is an explicit coordinator or user decision. Store its report under `.agent-workspace/memory/verifications/` using the bundled template.
